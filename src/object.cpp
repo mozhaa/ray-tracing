@@ -2,7 +2,7 @@
 
 namespace raytracing {
 
-std::optional<glm::vec3> Object::intersect(Ray ray) const { return {}; }
+std::optional<float> Object::intersect(Ray ray) const { return {}; }
 
 Ray Object::translate(Ray r) const { 
     glm::quat inv_rotation = glm::inverse(rotation);
@@ -15,15 +15,15 @@ Ellipsoid::Ellipsoid(Object &obj, glm::vec3 radius) : Object(obj), radius(radius
 
 Box::Box(Object &obj, glm::vec3 size) : Object(obj), size(size) {}
 
-std::optional<glm::vec3> Plane::intersect(Ray ray) const {
+std::optional<float> Plane::intersect(Ray ray) const {
     ray = translate(ray);
     float t = -glm::dot(ray.pos, normal) / glm::dot(ray.dir, normal);
     if (t >= 0)
-        return ray.at(t);
+        return t;
     return {};
 }
 
-std::optional<glm::vec3> Ellipsoid::intersect(Ray ray) const {
+std::optional<float> Ellipsoid::intersect(Ray ray) const {
     ray = translate(ray);
     float a = glm::dot(ray.dir / radius, ray.dir / radius);
     float b = 2 * glm::dot(ray.pos / radius, ray.dir / radius);
@@ -38,9 +38,9 @@ std::optional<glm::vec3> Ellipsoid::intersect(Ray ray) const {
         if (tM < 0)
             return {};
         else
-            return ray.at(tM);
+            return tM;
     } else
-        return ray.at(tm);
+        return tm;
 }
 
 static float min3(float x, float y, float z) {
@@ -51,7 +51,7 @@ static float max3(float x, float y, float z) {
     return std::max(x, std::max(y, z));
 }
 
-std::optional<glm::vec3> Box::intersect(Ray ray) const {
+std::optional<float> Box::intersect(Ray ray) const {
     ray = translate(ray);
     glm::vec3 tm = (-size - ray.pos) / ray.dir;
     glm::vec3 tM = (size - ray.pos) / ray.dir;
@@ -70,8 +70,8 @@ std::optional<glm::vec3> Box::intersect(Ray ray) const {
     if (t2 < 0)
         return {};
     if (t1 < 0)
-        return ray.at(t2);
-    return ray.at(t1);
+        return t2;
+    return t1;
 }
 
 } // namespace raytracing
