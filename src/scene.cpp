@@ -6,7 +6,7 @@
 #include <sstream>
 #include <string>
 
-#include "stb_image_write.h"
+#include "image.hpp"
 
 namespace raytracing {
 
@@ -99,15 +99,10 @@ void Scene::render(std::string fp) const {
                 static_cast<unsigned char>(pixel.g),
                 static_cast<unsigned char>(pixel.b),
             };
-            // std::cout << i << " " << j << " -> " << pixel.r << " " << pixel.g << " " << pixel.b << std::endl;
         }
     }
 
-    // for (int i = 0; i < camera.width * camera.height * 3; ++i) {
-    //     std::cout << image_data[i] << " ";
-    // }
-
-    stbi_write_png(fp.c_str(), camera.width, camera.height, 3, image_data.data(), camera.width * 3);
+    save_ppm(reinterpret_cast<const char*>(image_data.data()), camera.width, camera.height, fp.c_str());
 }
 
 glm::vec3 Scene::get_pixel(Ray ray) const {
