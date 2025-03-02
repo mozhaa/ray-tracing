@@ -2,3 +2,5 @@ obj
 raytracing*
 example_scenes
 .vscode
+.gdb_history
+*.txt
