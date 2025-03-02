@@ -53,7 +53,7 @@ Scene::Scene(std::string fp) : camera(), objects() {
         } else if (command == "ROTATION") {
             float x, y, z, w;
             iss >> x >> y >> z >> w;
-            obj->rotation = {x, y, z, w};
+            obj->rotation = {w, x, y, z};
         } else if (command == "CAMERA_POSITION") {
             float x, y, z;
             iss >> x >> y >> z;
@@ -110,12 +110,10 @@ glm::vec3 Scene::get_pixel(Ray ray) const {
     glm::vec3 color = bg_color;
 
     for (auto p_obj : objects) {
-        auto point = p_obj->intersect(ray);
-        if (point) {
-            float d = glm::distance(point.value(), ray.pos);
-            if (d < max_d) {
-                color = p_obj->color;
-            }
+        auto d = p_obj->intersect(ray);
+        if (d && d < max_d) {
+            color = p_obj->color;
+            max_d = d.value();
         }
     }
 
