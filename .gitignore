@@ -1,6 +1,8 @@
 obj
 raytracing*
-example_scenes
+test
 .vscode
 .gdb_history
 *.txt
+*.ppm
+*.png
