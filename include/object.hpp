@@ -14,7 +14,7 @@ namespace raytracing {
 
 struct Object {
     glm::vec3 position = {0.f, 0.f, 0.f};
-    glm::quat rotation = {0.f, 0.f, 0.f, 1.f};
+    glm::quat rotation = {1.f, 0.f, 0.f, 0.f};
     glm::vec3 color = {1.f, 1.f, 1.f};
 
     virtual std::optional<float> intersect(Ray ray) const;

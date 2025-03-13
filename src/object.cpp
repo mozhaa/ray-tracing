@@ -9,7 +9,7 @@ Ray Object::translate(Ray r) const {
     return {inv_rotation * (r.pos - position), glm::normalize(inv_rotation * r.dir)};
 }
 
-Plane::Plane(Object &obj, glm::vec3 normal) : Object(obj), normal(normal) {}
+Plane::Plane(Object &obj, glm::vec3 normal) : Object(obj), normal(glm::normalize(normal)) {}
 
 Ellipsoid::Ellipsoid(Object &obj, glm::vec3 radius) : Object(obj), radius(radius) {}
 
