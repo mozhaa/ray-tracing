@@ -6,6 +6,10 @@
 #include <sstream>
 #include <string>
 
+#ifdef MULTITHREADING_ENABLED
+#include "thread_pool/BS_thread_pool.hpp"
+#endif
+
 #include "image.hpp"
 
 namespace raytracing {
@@ -90,17 +94,25 @@ struct Pixel {
 void Scene::render(std::string fp) const {
     std::vector<Pixel> image_data(camera.width * camera.height);
 
-    for (int i = 0; i < camera.width; ++i) {
-        for (int j = 0; j < camera.height; ++j) {
-            auto ray = camera.get_ray(i, j);
-            glm::vec3 pixel = get_pixel(ray) * 255.f;
-            image_data[i + j * camera.width] = {
-                static_cast<unsigned char>(pixel.r),
-                static_cast<unsigned char>(pixel.g),
-                static_cast<unsigned char>(pixel.b),
-            };
-        }
-    }
+    auto set_pixel = [&](int t){
+        auto j = t % camera.height; 
+        auto i = (t - j) / camera.height;
+        auto ray = camera.get_ray(i, j);
+        auto pixel = get_pixel(ray) * 255.f;
+        
+        image_data[i + j * camera.width] = {
+            static_cast<unsigned char>(pixel.r),
+            static_cast<unsigned char>(pixel.g),
+            static_cast<unsigned char>(pixel.b),
+        };
+    };
+
+#ifdef MULTITHREADING_ENABLED
+    BS::thread_pool pool;
+    pool.submit_loop(0, camera.width * camera.height, set_pixel, 8).wait();
+#else
+    for (int t = 0; t < camera.width * camera.height; set_pixel(t++));
+#endif
 
     save_ppm(reinterpret_cast<const char*>(image_data.data()), camera.width, camera.height, fp.c_str());
 }

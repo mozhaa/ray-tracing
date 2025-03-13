@@ -4,7 +4,7 @@ OBJDIR = obj
 INCLUDEDIR = include
 
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -std=c++2a -I$(INCLUDEDIR)
+CXXFLAGS = -O3 -g -Wall -std=c++2a -I$(INCLUDEDIR) -DMULTITHREADING_ENABLED
 LDFLAGS = 
 
 OBJECTS = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(wildcard $(SRCDIR)/*.cpp))
@@ -23,6 +23,6 @@ $(OBJDIR):
 	mkdir -p $(OBJDIR)
 
 clean:
-	rm -rf $(OBJDIR) $(EXE) $(EXE).exe
+	rm -rf $(OBJDIR) $(EXE) $(EXE).exe *.png *.ppm *.txt
 
 .PHONY: clean all
