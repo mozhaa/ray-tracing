@@ -1,47 +1,40 @@
 #pragma once
 
-#include <optional>
+#include <variant>
 
 #define GLM_FORCE_SWIZZLE
 #define GLM_ENABLE_EXPERIMENTAL
-#include <glm/vec3.hpp>
-#include <glm/mat4x4.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
 
 #include "ray.hpp"
 
 namespace raytracing {
 
+enum Material { Diffuse, Metallic, Dielectric };
+
+enum Shape { Plane, Ellipsoid, Box };
+
 struct Object {
     glm::vec3 position = {0.f, 0.f, 0.f};
     glm::quat rotation = {1.f, 0.f, 0.f, 0.f};
     glm::vec3 color = {1.f, 1.f, 1.f};
+    Material material = Material::Diffuse;
+    Shape shape = Shape::Plane;
 
-    virtual std::optional<float> intersect(Ray ray) const;
+    glm::vec3 plane_normal = {0.f, 0.f, 1.f};
+    glm::vec3 ellipsoid_radius = {1.f, 1.f, 1.f};
+    glm::vec3 box_size = {1.f, 1.f, 1.f};
+    float dielectric_ior = 1.33f;
 
-protected:
     Ray translate(Ray r) const;
-};
+    OptInsc intersect(Ray r) const;
 
-struct Plane : public Object {
-    glm::vec3 normal;
-    
-    Plane(Object& obj, glm::vec3 normal);
-    std::optional<float> intersect(Ray ray) const override;
-};
-
-struct Ellipsoid : public Object {
-    glm::vec3 radius;
-    
-    Ellipsoid(Object& obj, glm::vec3 radius);
-    std::optional<float> intersect(Ray ray) const override;
-};
-
-struct Box : public Object {
-    glm::vec3 size;
-    
-    Box(Object& obj, glm::vec3 size);
-    std::optional<float> intersect(Ray ray) const override;
+private:
+    OptInsc intersect_plane(Ray r) const;
+    OptInsc intersect_ellipsoid(Ray r) const;
+    OptInsc intersect_box(Ray r) const;
 };
 
 } // namespace raytracing

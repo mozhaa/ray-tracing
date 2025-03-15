@@ -10,14 +10,17 @@
 #include "thread_pool/BS_thread_pool.hpp"
 #endif
 
+#include "color.hpp"
 #include "image.hpp"
 
 namespace raytracing {
 
-Scene::Scene(std::string fp) : camera(), objects() {
+Scene::Scene(std::string fp) : camera(), objects(), ambient() {
     std::ifstream file(fp);
     std::string line;
-    std::shared_ptr<Object> obj(nullptr);
+
+    std::shared_ptr<Object> object(nullptr);
+    std::shared_ptr<LightSource> light(nullptr);
 
     while (std::getline(file, line)) {
         std::istringstream iss(line);
@@ -26,110 +29,146 @@ Scene::Scene(std::string fp) : camera(), objects() {
         if (command == "DIMENSIONS") {
             iss >> camera.width >> camera.height;
         } else if (command == "BG_COLOR") {
-            float r, g, b;
-            iss >> r >> g >> b;
-            bg_color = {r, g, b};
+            iss >> bg_color.x >> bg_color.y >> bg_color.z;
         } else if (command == "NEW_PRIMITIVE") {
-            if (obj.get() != nullptr) {
-                objects.push_back(obj);
-            }
-            obj = std::shared_ptr<Object>(new Object());
+            if (object.get() != nullptr)
+                objects.push_back(object);
+            object = std::shared_ptr<Object>(new Object());
         } else if (command == "PLANE") {
-            float x, y, z;
-            iss >> x >> y >> z;
-            obj = std::shared_ptr<Object>(new Plane(*obj.get(), {x, y, z}));
+            object->shape = Shape::Plane;
+            iss >> object->plane_normal.x >> object->plane_normal.y >> object->plane_normal.z;
+            object->plane_normal = glm::normalize(object->plane_normal);
         } else if (command == "ELLIPSOID") {
-            float x, y, z;
-            iss >> x >> y >> z;
-            obj = std::shared_ptr<Object>(new Ellipsoid(*obj.get(), {x, y, z}));
+            object->shape = Shape::Ellipsoid;
+            iss >> object->ellipsoid_radius.x >> object->ellipsoid_radius.y >> object->ellipsoid_radius.z;
         } else if (command == "BOX") {
-            float x, y, z;
-            iss >> x >> y >> z;
-            obj = std::shared_ptr<Object>(new Box(*obj.get(), {x, y, z}));
+            object->shape = Shape::Box;
+            iss >> object->box_size.x >> object->box_size.y >> object->box_size.z;
         } else if (command == "COLOR") {
-            float r, g, b;
-            iss >> r >> g >> b;
-            obj->color = {r, g, b};
+            iss >> object->color.x >> object->color.y >> object->color.z;
         } else if (command == "POSITION") {
-            float x, y, z;
-            iss >> x >> y >> z;
-            obj->position = {x, y, z};
+            iss >> object->position.x >> object->position.y >> object->position.z;
         } else if (command == "ROTATION") {
-            float x, y, z, w;
-            iss >> x >> y >> z >> w;
-            obj->rotation = {w, x, y, z};
+            iss >> object->rotation.x >> object->rotation.y >> object->rotation.z >> object->rotation.w;
         } else if (command == "CAMERA_POSITION") {
-            float x, y, z;
-            iss >> x >> y >> z;
-            camera.position = {x, y, z};
+            iss >> camera.position.x >> camera.position.y >> camera.position.z;
         } else if (command == "CAMERA_RIGHT") {
-            float x, y, z;
-            iss >> x >> y >> z;
-            camera.right = {x, y, z};
+            iss >> camera.right.x >> camera.right.y >> camera.right.z;
         } else if (command == "CAMERA_UP") {
-            float x, y, z;
-            iss >> x >> y >> z;
-            camera.up = {x, y, z};
+            iss >> camera.up.x >> camera.up.y >> camera.up.z;
         } else if (command == "CAMERA_FORWARD") {
-            float x, y, z;
-            iss >> x >> y >> z;
-            camera.forward = {x, y, z};
+            iss >> camera.forward.x >> camera.forward.y >> camera.forward.z;
         } else if (command == "CAMERA_FOV_X") {
             iss >> camera.fov_x;
+        } else if (command == "RAY_DEPTH") {
+            iss >> ray_depth;
+        } else if (command == "AMBIENT_LIGHT") {
+            iss >> ambient.color.x >> ambient.color.y >> ambient.color.z;
+        } else if (command == "NEW_LIGHT") {
+            if (light.get() != nullptr)
+                light_sources.push_back(light);
+            light = std::shared_ptr<LightSource>(new LightSource());
+        } else if (command == "LIGHT_INTENSITY") {
+            iss >> light->intensity.x >> light->intensity.y >> light->intensity.z;
+        } else if ((command == "LIGHT_DIRECTION") || (command == "LIGHT_DIR")) {
+            light->type = LightSourceType::Direct;
+            iss >> light->direction.x >> light->direction.y >> light->direction.z;
+            light->direction = glm::normalize(light->direction);
+        } else if ((command == "LIGHT_POSITION") || (command == "LIGHT_POS")) {
+            light->type = LightSourceType::Point;
+            iss >> light->position.x >> light->position.y >> light->position.z;
+        } else if (command == "LIGHT_ATTENUATION") {
+            light->type = LightSourceType::Point;
+            iss >> light->attenuation.x >> light->attenuation.y >> light->attenuation.z;
+        } else if (command == "IOR") {
+            object->material = Material::Dielectric;
+            iss >> object->dielectric_ior;
+        } else if (command == "DIELECTRIC") {
+            object->material = Material::Dielectric;
+        } else if (command == "METALLIC") {
+            object->material = Material::Metallic;
         } else if (command != "") {
             std::cout << "WARNING: Unknown command: " << command << std::endl;
             continue;
         }
     }
 
-    if (obj != nullptr) {
-        objects.push_back(obj);
-    }
+    if (object != nullptr)
+        objects.push_back(object);
+    if (light.get() != nullptr)
+        light_sources.push_back(light);
 }
-
-struct Pixel {
-    unsigned char r, g, b;
-};
 
 void Scene::render(std::string fp) const {
     std::vector<Pixel> image_data(camera.width * camera.height);
 
-    auto set_pixel = [&](int t){
-        auto j = t % camera.height; 
+    auto set_pixel = [&](int t) {
+        auto j = t % camera.height;
         auto i = (t - j) / camera.height;
         auto ray = camera.get_ray(i, j);
-        auto pixel = get_pixel(ray) * 255.f;
-        
-        image_data[i + j * camera.width] = {
-            static_cast<unsigned char>(pixel.r),
-            static_cast<unsigned char>(pixel.g),
-            static_cast<unsigned char>(pixel.b),
-        };
+        auto color = get_color(ray, ray_depth);
+        image_data[i + j * camera.width] = aces_tonemap(color);
     };
 
 #ifdef MULTITHREADING_ENABLED
     BS::thread_pool pool;
     pool.submit_loop(0, camera.width * camera.height, set_pixel, 8).wait();
 #else
-    for (int t = 0; t < camera.width * camera.height; set_pixel(t++));
+    for (int t = 0; t < camera.width * camera.height; t++)
+        set_pixel(t);
 #endif
 
-    save_ppm(reinterpret_cast<const char*>(image_data.data()), camera.width, camera.height, fp.c_str());
+    save_ppm(reinterpret_cast<const char *>(image_data.data()), camera.width, camera.height, fp.c_str());
 }
 
-glm::vec3 Scene::get_pixel(Ray ray) const {
-    float max_d = std::numeric_limits<float>::infinity();
-    glm::vec3 color = bg_color;
+std::pair<OptInsc, std::shared_ptr<Object>> Scene::intersect(Ray ray, float max_distance) const {
+    std::pair<OptInsc, std::shared_ptr<Object>> nearest(std::nullopt, nullptr);
 
     for (auto p_obj : objects) {
-        auto d = p_obj->intersect(ray);
-        if (d && d < max_d) {
-            color = p_obj->color;
-            max_d = d.value();
+        auto insc = p_obj->intersect(ray);
+        if (insc && insc.value().t < max_distance) {
+            nearest.second = p_obj;
+            max_distance = insc.value().t;
+            nearest.first = insc.value();
         }
     }
 
-    return color;
+    return nearest;
+}
+
+glm::vec3 Scene::get_color(Ray ray, int depth) const {
+    if (depth == 0)
+        return {0.f, 0.f, 0.f};
+
+    auto [insc, p_obj] = intersect(ray);
+    if (p_obj == nullptr)
+        return bg_color;
+
+    switch (p_obj->material) {
+    case Material::Diffuse: {
+        glm::vec3 total_color = p_obj->color * ambient.color;
+        for (auto& light : light_sources) {
+            auto [new_ray, max_distance] = light->where_to_look(ray.at(insc.value().t));
+            auto [new_insc, new_p_obj] = intersect(new_ray.step(), max_distance);
+            if (new_p_obj == nullptr) {
+                total_color += light->at(ray.at(insc.value().t), insc.value().normal);
+            }
+        }
+        return total_color;
+    }
+    case Material::Metallic: {
+        Ray new_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
+        auto new_color = get_color(new_ray.step(), depth - 1);
+        return p_obj->color * new_color;
+    }
+    case Material::Dielectric: {
+        // TODO
+        return {1.f, 0.f, 0.f};
+    }
+    default: {
+        assert(false);
+    }
+    }
 }
 
 } // namespace raytracing

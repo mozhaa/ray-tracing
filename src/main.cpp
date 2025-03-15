@@ -1,25 +1,20 @@
-#include <string>
 #include <chrono>
 #include <iostream>
-#include <functional>
+#include <string>
 
 #include "scene.hpp"
 
 using namespace raytracing;
 
-float timeit(std::function<void(void)> f) {
+int main(int argc, char **argv) {
     auto begin = std::chrono::steady_clock::now();
-    f();
+
+    Scene scene{std::string(argv[1])};
+    scene.render(std::string(argv[2]));
+
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<float> delta = end - begin;
-    return delta.count();
-}
+    std::cout << "Time elapsed: " << delta.count() << "[s]" << std::endl;
 
-int main(int argc, char **argv) {
-    auto elapsed_time = timeit([&argv](){
-        Scene scene{std::string(argv[1])};
-        scene.render(std::string(argv[2]));
-    });
-    std::cout << "Time elapsed: " << elapsed_time << "[s]" << std::endl;
     return 0;
 }
