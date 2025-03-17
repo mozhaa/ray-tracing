@@ -6,7 +6,7 @@ unsigned char to_pixel(float x) { return static_cast<unsigned char>(x * 255.f); 
 
 static glm::vec3 gamma_correction(glm::vec3 c) {
     const float p = 0.454545454545f;
-    return {pow(c.x, p), pow(c.y, p), pow(c.z, p)};
+    return {std::pow(c.x, p), std::pow(c.y, p), std::pow(c.z, p)};
 }
 
 Pixel aces_tonemap(glm::vec3 x) {

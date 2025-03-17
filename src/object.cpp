@@ -44,7 +44,7 @@ OptInsc Object::intersect_ellipsoid(Ray r) const {
     float d = b * b - 4 * a * c;
     if (d < 0)
         return std::nullopt;
-    d = sqrt(d);
+    d = std::sqrt(d);
     float tm = (-b - d) / (2 * a);
     float tM = (-b + d) / (2 * a);
     if (tm < 0) {
