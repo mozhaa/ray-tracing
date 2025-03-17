@@ -17,6 +17,10 @@ namespace raytracing {
 
 Scene::Scene(std::string fp) : camera(), objects(), ambient() {
     std::ifstream file(fp);
+    if (file.fail()) {
+        throw std::runtime_error("input file does not exist");
+    }
+    
     std::string line;
 
     std::shared_ptr<Object> object(nullptr);
