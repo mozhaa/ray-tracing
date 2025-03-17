@@ -162,7 +162,10 @@ glm::vec3 Scene::get_color(Ray ray, int depth) const {
         return p_obj->color * new_color;
     }
     case Material::Dielectric: {
-        float eta = insc.value().inside ? p_obj->dielectric_ior : 1/p_obj->dielectric_ior;
+        float eta1 = insc.value().inside ? p_obj->dielectric_ior : 1.f;
+        float eta2 = insc.value().inside ? 1.f : p_obj->dielectric_ior;
+        float eta = eta1 / eta2;
+
         Ray refracted_ray = {ray.at(insc.value().t), glm::refract(ray.dir, insc.value().normal, eta)};
         auto refracted_color = get_color(refracted_ray.step(), depth - 1);
         
@@ -170,9 +173,8 @@ glm::vec3 Scene::get_color(Ray ray, int depth) const {
         auto reflected_color = get_color(reflected_ray.step(), depth - 1);
 
         float cos_theta = glm::dot(-ray.dir, insc.value().normal);
-        float theta = std::acos(cos_theta);
-        const float R0 = 0.020373187841971;
-        float r = std::max(0.0, std::min(R0 + (1 - R0) * pow((1 - cos(theta)), 5.0), 1.0));
+        float R0 = std::pow((eta1 - eta2) / (eta1 + eta2), 2.f);
+        float r = std::max(0.f, std::min(R0 + (1 - R0) * std::pow((1 - cos_theta), 5.f), 1.f));
         
         return r * reflected_color + (1 - r) * refracted_color;
     }

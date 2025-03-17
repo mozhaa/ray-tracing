@@ -31,11 +31,9 @@ Ray Object::translate(Ray r) const {
 }
 
 OptInsc Object::intersect_plane(Ray r) const {
-    float x = glm::dot(r.dir, plane_normal);
-    float t = -glm::dot(r.pos, plane_normal) / x;
-    // TODO set Intersection.inside where needed
+    float t = -glm::dot(r.pos, plane_normal) / glm::dot(r.dir, plane_normal);
     if (t >= 0)
-        return Intersection(t, plane_normal, x > 0);
+        return Intersection(t, plane_normal);
     return std::nullopt;
 }
 
@@ -53,17 +51,9 @@ OptInsc Object::intersect_ellipsoid(Ray r) const {
         if (tM < 0)
             return std::nullopt;
         else
-            return Intersection(tM, glm::normalize(r.at(tM) / ellipsoid_radius), true);
+            return Intersection(tM, glm::normalize(r.at(tM) / (ellipsoid_radius * ellipsoid_radius)));
     } else
-        return Intersection(tm, glm::normalize(r.at(tm) / ellipsoid_radius), false);
-}
-
-static bool in_range(float value, float m, float M) {
-    return value < M && value > m;
-}
-
-static bool in_range(glm::vec3 value, glm::vec3 m, glm::vec3 M) {
-    return in_range(value.x, m.x, M.x) && in_range(value.y, m.y, M.y) && in_range(value.z, m.z, M.z);
+        return Intersection(tm, glm::normalize(r.at(tm) / (ellipsoid_radius * ellipsoid_radius)));
 }
 
 OptInsc Object::intersect_box(Ray r) const {
@@ -71,14 +61,13 @@ OptInsc Object::intersect_box(Ray r) const {
     glm::vec3 tM = (box_size - r.pos) / r.dir;
     float t1 = max3(std::min(tm.x, tM.x), std::min(tm.y, tM.y), std::min(tm.z, tM.z));
     float t2 = min3(std::max(tm.x, tM.x), std::max(tm.y, tM.y), std::max(tm.z, tM.z));
-    bool inside = in_range(r.pos, -box_size, box_size);
     if (t1 > t2)
         return std::nullopt;
     if (t2 < 0)
         return std::nullopt;
     if (t1 < 0)
-        return Intersection(t2, glm::normalize(keep_max(r.at(t2) / box_size)), inside);
-    return Intersection(t1, glm::normalize(keep_max(r.at(t1) / box_size)), inside);
+        return Intersection(t2, glm::normalize(keep_max(r.at(t2) / box_size)));
+    return Intersection(t1, glm::normalize(keep_max(r.at(t1) / box_size)));
 }
 
 OptInsc Object::intersect(Ray r) const {
@@ -96,10 +85,10 @@ OptInsc Object::intersect(Ray r) const {
         break;
     }
     if (result.has_value()) {
-        if (glm::dot(result.value().normal, -r.dir) < 0) {
+        result.value().inside = glm::dot(-r.dir, result.value().normal) < 0;
+        if (result.value().inside)
             result.value().normal *= -1;    
-        }
-        result.value().normal = result.value().normal;
+        result.value().normal = glm::normalize(rotation * result.value().normal);
     }
     return result;
 }
