@@ -4,7 +4,7 @@ OBJDIR = obj
 INCLUDEDIR = include
 
 CXX = g++
-CXXFLAGS = -O3 -g -Wall -std=c++2a -I$(INCLUDEDIR) -DMULTITHREADING_ENABLED
+CXXFLAGS = -O3 -g -Wall -std=c++2a -I$(INCLUDEDIR)
 LDFLAGS = 
 
 OBJECTS = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(wildcard $(SRCDIR)/*.cpp))
