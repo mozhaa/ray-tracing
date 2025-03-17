@@ -176,7 +176,7 @@ glm::vec3 Scene::get_color(Ray ray, int depth) const {
         float R0 = std::pow((eta1 - eta2) / (eta1 + eta2), 2.f);
         float r = std::max(0.f, std::min(R0 + (1 - R0) * std::pow((1 - cos_theta), 5.f), 1.f));
         
-        return r * reflected_color + (1 - r) * refracted_color;
+        return r * reflected_color + (1 - r) * refracted_color * p_obj->color;
     }
     default: {
         assert(false);
