@@ -173,9 +173,17 @@ glm::vec3 Scene::get_color(Ray ray, int depth) const {
         auto reflected_color = get_color(reflected_ray.step(), depth - 1);
 
         float cos_theta = glm::dot(-ray.dir, insc.value().normal);
-        float R0 = std::pow((eta1 - eta2) / (eta1 + eta2), 2.f);
-        float r = std::max(0.f, std::min(R0 + (1 - R0) * std::pow((1 - cos_theta), 5.f), 1.f));
         
+        float sin_theta2 = eta1 / eta2 * sqrt(1 - pow(cos_theta, 2));
+        if (abs(sin_theta2) > 1) {
+            return reflected_color;
+        }
+        
+        float R0 = std::pow((eta1 - eta2) / (eta1 + eta2), 2.f);
+        float r = R0 + (1 - R0) * std::pow((1 - cos_theta), 5.f);
+        
+        if (insc.value().inside)
+            return r * reflected_color + (1 - r) * refracted_color;
         return r * reflected_color + (1 - r) * refracted_color * p_obj->color;
     }
     default: {
