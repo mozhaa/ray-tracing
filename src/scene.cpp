@@ -146,7 +146,7 @@ glm::vec3 Scene::get_color(Ray ray, int depth) const {
 
     switch (p_obj->material) {
     case Material::Diffuse: {
-        glm::vec3 total_color = p_obj->color * ambient.color;
+        glm::vec3 total_color = ambient.color;
         for (auto& light : light_sources) {
             auto [new_ray, max_distance] = light->where_to_look(ray.at(insc.value().t));
             auto [new_insc, new_p_obj] = intersect(new_ray.step(), max_distance);
@@ -154,7 +154,7 @@ glm::vec3 Scene::get_color(Ray ray, int depth) const {
                 total_color += light->at(ray.at(insc.value().t), insc.value().normal);
             }
         }
-        return total_color;
+        return p_obj->color * total_color;
     }
     case Material::Metallic: {
         Ray new_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
@@ -162,8 +162,19 @@ glm::vec3 Scene::get_color(Ray ray, int depth) const {
         return p_obj->color * new_color;
     }
     case Material::Dielectric: {
-        // TODO
-        return {1.f, 0.f, 0.f};
+        float eta = insc.value().inside ? p_obj->dielectric_ior : 1/p_obj->dielectric_ior;
+        Ray refracted_ray = {ray.at(insc.value().t), glm::refract(ray.dir, insc.value().normal, eta)};
+        auto refracted_color = get_color(refracted_ray.step(), depth - 1);
+        
+        Ray reflected_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
+        auto reflected_color = get_color(reflected_ray.step(), depth - 1);
+
+        float cos_theta = glm::dot(-ray.dir, insc.value().normal);
+        float theta = std::acos(cos_theta);
+        const float R0 = 0.020373187841971;
+        float r = std::max(0.0, std::min(R0 + (1 - R0) * pow((1 - cos(theta)), 5.0), 1.0));
+        
+        return r * reflected_color + (1 - r) * refracted_color;
     }
     default: {
         assert(false);

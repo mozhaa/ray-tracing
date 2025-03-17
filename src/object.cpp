@@ -31,9 +31,11 @@ Ray Object::translate(Ray r) const {
 }
 
 OptInsc Object::intersect_plane(Ray r) const {
-    float t = -glm::dot(r.pos, plane_normal) / glm::dot(r.dir, plane_normal);
+    float x = glm::dot(r.dir, plane_normal);
+    float t = -glm::dot(r.pos, plane_normal) / x;
+    // TODO set Intersection.inside where needed
     if (t >= 0)
-        return Intersection(t, plane_normal);
+        return Intersection(t, plane_normal, x > 0);
     return std::nullopt;
 }
 
@@ -51,9 +53,17 @@ OptInsc Object::intersect_ellipsoid(Ray r) const {
         if (tM < 0)
             return std::nullopt;
         else
-            return Intersection(tM, glm::normalize(r.at(tM) / ellipsoid_radius));
+            return Intersection(tM, glm::normalize(r.at(tM) / ellipsoid_radius), true);
     } else
-        return Intersection(tm, glm::normalize(r.at(tm) / ellipsoid_radius));
+        return Intersection(tm, glm::normalize(r.at(tm) / ellipsoid_radius), false);
+}
+
+static bool in_range(float value, float m, float M) {
+    return value < M && value > m;
+}
+
+static bool in_range(glm::vec3 value, glm::vec3 m, glm::vec3 M) {
+    return in_range(value.x, m.x, M.x) && in_range(value.y, m.y, M.y) && in_range(value.z, m.z, M.z);
 }
 
 OptInsc Object::intersect_box(Ray r) const {
@@ -61,13 +71,14 @@ OptInsc Object::intersect_box(Ray r) const {
     glm::vec3 tM = (box_size - r.pos) / r.dir;
     float t1 = max3(std::min(tm.x, tM.x), std::min(tm.y, tM.y), std::min(tm.z, tM.z));
     float t2 = min3(std::max(tm.x, tM.x), std::max(tm.y, tM.y), std::max(tm.z, tM.z));
+    bool inside = in_range(r.pos, -box_size, box_size);
     if (t1 > t2)
         return std::nullopt;
     if (t2 < 0)
         return std::nullopt;
     if (t1 < 0)
-        return Intersection(t2, glm::normalize(keep_max(r.at(t2) / box_size)));
-    return Intersection(t1, glm::normalize(keep_max(r.at(t1) / box_size)));
+        return Intersection(t2, glm::normalize(keep_max(r.at(t2) / box_size)), inside);
+    return Intersection(t1, glm::normalize(keep_max(r.at(t1) / box_size)), inside);
 }
 
 OptInsc Object::intersect(Ray r) const {
