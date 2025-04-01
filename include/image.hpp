@@ -4,6 +4,6 @@
 
 namespace raytracing {
 
-void save_ppm(const char* data, int width, int height, std::string fp);
+void save_ppm(const char *data, int width, int height, std::string fp);
 
 } // namespace raytracing

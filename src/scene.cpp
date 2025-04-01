@@ -8,9 +8,10 @@
 #include <string>
 #include <thread>
 
-
 #include "color.hpp"
 #include "image.hpp"
+
+const int n_threads = 4;
 
 namespace raytracing {
 
@@ -85,9 +86,7 @@ Scene::Scene(std::string fp) : camera(), objects() {
         objects.push_back(object);
 }
 
-static void show_progress(float percentage) {
-    std::cerr << "\r" << std::round(percentage * 100) << "%" << std::flush;
-}
+static void show_progress(float percentage) { std::cerr << "\r" << std::round(percentage * 100) << "%" << std::flush; }
 
 void Scene::render(std::string fp) const {
     int total_pixels = camera.width * camera.height;
@@ -112,7 +111,6 @@ void Scene::render(std::string fp) const {
         }
     };
 
-    const int n_threads = 8;
     std::vector<std::thread> work_threads;
     work_threads.reserve(n_threads);
 
@@ -126,7 +124,7 @@ void Scene::render(std::string fp) const {
         show_progress(static_cast<float>(pixels_done) / total_pixels);
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
-    
+
     for (int i = 0; i < n_threads; ++i) {
         work_threads[i].join();
     }

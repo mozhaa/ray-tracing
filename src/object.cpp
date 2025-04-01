@@ -87,7 +87,7 @@ OptInsc Object::intersect(Ray r) const {
     if (result.has_value()) {
         result.value().inside = glm::dot(-r.dir, result.value().normal) < 0;
         if (result.value().inside)
-            result.value().normal *= -1;    
+            result.value().normal *= -1;
         result.value().normal = glm::normalize(rotation * result.value().normal);
     }
     return result;

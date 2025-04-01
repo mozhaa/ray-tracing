@@ -21,7 +21,7 @@ struct Scene {
     Scene(std::string fp);
     void render(std::string fp) const;
 
-  private:
+private:
     std::pair<OptInsc, std::shared_ptr<Object>> intersect(Ray ray, float max_distance = std::numeric_limits<float>::infinity()) const;
     glm::vec3 get_color(Ray ray, int depth, std::minstd_rand0 &rng) const;
 };
