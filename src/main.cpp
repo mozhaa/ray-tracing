@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
 
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<float> delta = end - begin;
-    std::cout << "Time elapsed: " << delta.count() << "[s]" << std::endl;
+    std::cerr << "Time elapsed: " << delta.count() << "[s]" << std::endl;
 
     return 0;
 }

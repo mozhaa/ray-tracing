@@ -1,15 +1,13 @@
 #include "scene.hpp"
 
+#include <atomic>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <sstream>
 #include <string>
+#include <thread>
 
-#ifdef MULTITHREADING_ENABLED
-#include "thread_pool/BS_thread_pool.hpp"
-const int n_threads = 8;
-#endif
 
 #include "color.hpp"
 #include "image.hpp"
@@ -87,12 +85,18 @@ Scene::Scene(std::string fp) : camera(), objects() {
         objects.push_back(object);
 }
 
-void Scene::render(std::string fp) const {
-    std::vector<Pixel> image_data(camera.width * camera.height);
+static void show_progress(float percentage) {
+    std::cerr << "\r" << std::round(percentage * 100) << "%" << std::flush;
+}
 
-    auto fill_area = [&](const std::size_t start, const std::size_t end) {
+void Scene::render(std::string fp) const {
+    int total_pixels = camera.width * camera.height;
+    std::vector<Pixel> image_data(total_pixels);
+    std::atomic_int pixels_done = 0;
+
+    auto fill_area = [&](const int start, const int end) {
         std::minstd_rand0 rng;
-        for (std::size_t t = start; t < end; ++t) {
+        for (int t = start; t < end; ++t) {
             auto j = t % camera.height;
             auto i = (t - j) / camera.height;
             std::uniform_real_distribution<float> d(0.f, 1.f);
@@ -102,16 +106,33 @@ void Scene::render(std::string fp) const {
                 auto color = get_color(ray, ray_depth, rng);
                 result_color += color;
             }
+
             image_data[i + j * camera.width] = aces_tonemap(result_color / static_cast<float>(n_samples));
+            ++pixels_done;
         }
     };
 
-#ifdef MULTITHREADING_ENABLED
-    BS::thread_pool pool;
-    pool.submit_blocks(0, camera.width * camera.height, fill_area, n_threads).wait();
-#else
-    fill_area(0, camera.width * camera.height);
-#endif
+    const int n_threads = 8;
+    std::vector<std::thread> work_threads;
+    work_threads.reserve(n_threads);
+
+    for (int i = 0; i < n_threads; ++i) {
+        int start = std::round(total_pixels * static_cast<float>(i) / n_threads);
+        int end = std::round(total_pixels * static_cast<float>(i + 1) / n_threads);
+        work_threads.emplace_back(std::thread(fill_area, start, end));
+    }
+
+    while (pixels_done != total_pixels) {
+        show_progress(static_cast<float>(pixels_done) / total_pixels);
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    
+    for (int i = 0; i < n_threads; ++i) {
+        work_threads[i].join();
+    }
+
+    show_progress(1.f);
+    std::cout << std::endl;
 
     save_ppm(reinterpret_cast<const char *>(image_data.data()), camera.width, camera.height, fp.c_str());
 }
@@ -184,6 +205,7 @@ glm::vec3 Scene::get_color(Ray ray, int depth, std::minstd_rand0 &rng) const {
     }
     default:
         assert(false);
+        return glm::vec3{0.f};
     }
 }
 
