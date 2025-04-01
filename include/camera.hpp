@@ -4,8 +4,8 @@
 
 #define GLM_FORCE_SWIZZLE
 #define GLM_ENABLE_EXPERIMENTAL
-#include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
 
 #include "ray.hpp"
 
@@ -16,7 +16,7 @@ struct Camera {
     glm::vec3 position, right, up, forward;
     float fov_x;
 
-    Ray get_ray(int i, int j) const;
+    Ray get_ray(float px, float py) const;
 };
 
 } // namespace raytracing

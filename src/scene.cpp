@@ -8,6 +8,7 @@
 
 #ifdef MULTITHREADING_ENABLED
 #include "thread_pool/BS_thread_pool.hpp"
+const int n_threads = 8;
 #endif
 
 #include "color.hpp"
@@ -15,16 +16,15 @@
 
 namespace raytracing {
 
-Scene::Scene(std::string fp) : camera(), objects(), ambient() {
+Scene::Scene(std::string fp) : camera(), objects() {
     std::ifstream file(fp);
     if (file.fail()) {
         throw std::runtime_error("input file does not exist");
     }
-    
+
     std::string line;
 
     std::shared_ptr<Object> object(nullptr);
-    std::shared_ptr<LightSource> light(nullptr);
 
     while (std::getline(file, line)) {
         std::istringstream iss(line);
@@ -34,6 +34,8 @@ Scene::Scene(std::string fp) : camera(), objects(), ambient() {
             iss >> camera.width >> camera.height;
         } else if (command == "BG_COLOR") {
             iss >> bg_color.x >> bg_color.y >> bg_color.z;
+        } else if (command == "SAMPLES") {
+            iss >> n_samples;
         } else if (command == "NEW_PRIMITIVE") {
             if (object.get() != nullptr)
                 objects.push_back(object);
@@ -66,24 +68,8 @@ Scene::Scene(std::string fp) : camera(), objects(), ambient() {
             iss >> camera.fov_x;
         } else if (command == "RAY_DEPTH") {
             iss >> ray_depth;
-        } else if (command == "AMBIENT_LIGHT") {
-            iss >> ambient.color.x >> ambient.color.y >> ambient.color.z;
-        } else if (command == "NEW_LIGHT") {
-            if (light.get() != nullptr)
-                light_sources.push_back(light);
-            light = std::shared_ptr<LightSource>(new LightSource());
-        } else if (command == "LIGHT_INTENSITY") {
-            iss >> light->intensity.x >> light->intensity.y >> light->intensity.z;
-        } else if ((command == "LIGHT_DIRECTION") || (command == "LIGHT_DIR")) {
-            light->type = LightSourceType::Direct;
-            iss >> light->direction.x >> light->direction.y >> light->direction.z;
-            light->direction = glm::normalize(light->direction);
-        } else if ((command == "LIGHT_POSITION") || (command == "LIGHT_POS")) {
-            light->type = LightSourceType::Point;
-            iss >> light->position.x >> light->position.y >> light->position.z;
-        } else if (command == "LIGHT_ATTENUATION") {
-            light->type = LightSourceType::Point;
-            iss >> light->attenuation.x >> light->attenuation.y >> light->attenuation.z;
+        } else if (command == "EMISSION") {
+            iss >> object->emission.x >> object->emission.y >> object->emission.z;
         } else if (command == "IOR") {
             object->material = Material::Dielectric;
             iss >> object->dielectric_ior;
@@ -99,27 +85,32 @@ Scene::Scene(std::string fp) : camera(), objects(), ambient() {
 
     if (object != nullptr)
         objects.push_back(object);
-    if (light.get() != nullptr)
-        light_sources.push_back(light);
 }
 
 void Scene::render(std::string fp) const {
     std::vector<Pixel> image_data(camera.width * camera.height);
 
-    auto set_pixel = [&](int t) {
-        auto j = t % camera.height;
-        auto i = (t - j) / camera.height;
-        auto ray = camera.get_ray(i, j);
-        auto color = get_color(ray, ray_depth);
-        image_data[i + j * camera.width] = aces_tonemap(color);
+    auto fill_area = [&](const std::size_t start, const std::size_t end) {
+        std::minstd_rand0 rng;
+        for (std::size_t t = start; t < end; ++t) {
+            auto j = t % camera.height;
+            auto i = (t - j) / camera.height;
+            std::uniform_real_distribution<float> d(0.f, 1.f);
+            glm::vec3 result_color(0.f);
+            for (int s = 0; s < n_samples; ++s) {
+                auto ray = camera.get_ray(i + d(rng), j + d(rng));
+                auto color = get_color(ray, ray_depth, rng);
+                result_color += color;
+            }
+            image_data[i + j * camera.width] = aces_tonemap(result_color / static_cast<float>(n_samples));
+        }
     };
 
 #ifdef MULTITHREADING_ENABLED
     BS::thread_pool pool;
-    pool.submit_loop(0, camera.width * camera.height, set_pixel, 8).wait();
+    pool.submit_blocks(0, camera.width * camera.height, fill_area, n_threads).wait();
 #else
-    for (int t = 0; t < camera.width * camera.height; t++)
-        set_pixel(t);
+    fill_area(0, camera.width * camera.height);
 #endif
 
     save_ppm(reinterpret_cast<const char *>(image_data.data()), camera.width, camera.height, fp.c_str());
@@ -140,7 +131,17 @@ std::pair<OptInsc, std::shared_ptr<Object>> Scene::intersect(Ray ray, float max_
     return nearest;
 }
 
-glm::vec3 Scene::get_color(Ray ray, int depth) const {
+static glm::vec3 get_random_reflection(glm::vec3 normal, std::minstd_rand0 &rng) {
+    std::uniform_real_distribution<float> d(-1.f, 1.f);
+    glm::vec3 v = {d(rng), d(rng), d(rng)};
+    v = glm::normalize(v);
+    if (glm::dot(v, normal) < 0)
+        return -v;
+    else
+        return v;
+}
+
+glm::vec3 Scene::get_color(Ray ray, int depth, std::minstd_rand0 &rng) const {
     if (depth == 0)
         return {0.f, 0.f, 0.f};
 
@@ -150,19 +151,13 @@ glm::vec3 Scene::get_color(Ray ray, int depth) const {
 
     switch (p_obj->material) {
     case Material::Diffuse: {
-        glm::vec3 total_color = ambient.color;
-        for (auto& light : light_sources) {
-            auto [new_ray, max_distance] = light->where_to_look(ray.at(insc.value().t));
-            auto [new_insc, new_p_obj] = intersect(new_ray.step(), max_distance);
-            if (new_p_obj == nullptr) {
-                total_color += light->at(ray.at(insc.value().t), insc.value().normal);
-            }
-        }
-        return p_obj->color * total_color;
+        Ray new_ray = {ray.at(insc.value().t), get_random_reflection(insc.value().normal, rng)};
+        auto new_color = get_color(new_ray.step(), depth - 1, rng);
+        return p_obj->emission + 2.f * p_obj->color * new_color * glm::dot(new_ray.dir, insc.value().normal);
     }
     case Material::Metallic: {
         Ray new_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
-        auto new_color = get_color(new_ray.step(), depth - 1);
+        auto new_color = get_color(new_ray.step(), depth - 1, rng);
         return p_obj->color * new_color;
     }
     case Material::Dielectric: {
@@ -170,29 +165,25 @@ glm::vec3 Scene::get_color(Ray ray, int depth) const {
         float eta2 = insc.value().inside ? 1.f : p_obj->dielectric_ior;
         float eta = eta1 / eta2;
 
-        Ray refracted_ray = {ray.at(insc.value().t), glm::refract(ray.dir, insc.value().normal, eta)};
-        auto refracted_color = get_color(refracted_ray.step(), depth - 1);
-        
-        Ray reflected_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
-        auto reflected_color = get_color(reflected_ray.step(), depth - 1);
-
         float cos_theta = glm::dot(-ray.dir, insc.value().normal);
-        
-        float sin_theta2 = eta1 / eta2 * std::sqrt(1 - std::pow(cos_theta, 2));
-        if (std::abs(sin_theta2) > 1) {
-            return reflected_color;
-        }
-        
         float R0 = std::pow((eta1 - eta2) / (eta1 + eta2), 2.f);
         float r = R0 + (1 - R0) * std::pow((1 - cos_theta), 5.f);
-        
-        if (insc.value().inside)
-            return r * reflected_color + (1 - r) * refracted_color;
-        return r * reflected_color + (1 - r) * refracted_color * p_obj->color;
+
+        float sin_theta2 = eta1 / eta2 * std::sqrt(1 - std::pow(cos_theta, 2));
+
+        if (!(std::abs(sin_theta2) > 1) && std::bernoulli_distribution(r)(rng)) {
+            Ray reflected_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
+            return get_color(reflected_ray.step(), depth - 1, rng);
+        } else {
+            Ray refracted_ray = {ray.at(insc.value().t), glm::refract(ray.dir, insc.value().normal, eta)};
+            glm::vec3 refracted_color = get_color(refracted_ray.step(), depth - 1, rng);
+            if (!insc.value().inside)
+                refracted_color *= p_obj->color;
+            return refracted_color;
+        }
     }
-    default: {
+    default:
         assert(false);
-    }
     }
 }
 
