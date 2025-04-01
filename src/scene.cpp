@@ -192,9 +192,10 @@ glm::vec3 Scene::get_color(Ray ray, int depth, std::minstd_rand0 &rng) const {
 
         float sin_theta2 = eta1 / eta2 * std::sqrt(1 - std::pow(cos_theta, 2));
 
-        if (!(std::abs(sin_theta2) > 1) && std::bernoulli_distribution(r)(rng)) {
+        if ((std::abs(sin_theta2) > 1) || (r > 0.f && (r >= 1.f || std::bernoulli_distribution(r)(rng)))) {
             Ray reflected_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
-            return get_color(reflected_ray.step(), depth - 1, rng);
+            glm::vec3 reflected_color = get_color(reflected_ray.step(), depth - 1, rng);
+            return reflected_color;
         } else {
             Ray refracted_ray = {ray.at(insc.value().t), glm::refract(ray.dir, insc.value().normal, eta)};
             glm::vec3 refracted_color = get_color(refracted_ray.step(), depth - 1, rng);
