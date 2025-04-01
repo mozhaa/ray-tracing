@@ -151,7 +151,7 @@ std::pair<OptInsc, std::shared_ptr<Object>> Scene::intersect(Ray ray, float max_
 }
 
 static glm::vec3 get_random_reflection(glm::vec3 normal, std::minstd_rand0 &rng) {
-    std::uniform_real_distribution<float> d(-1.f, 1.f);
+    std::normal_distribution<float> d(0.f, 1.f);
     glm::vec3 v = {d(rng), d(rng), d(rng)};
     v = glm::normalize(v);
     if (glm::dot(v, normal) < 0)
@@ -177,7 +177,7 @@ glm::vec3 Scene::get_color(Ray ray, int depth, std::minstd_rand0 &rng) const {
     case Material::Metallic: {
         Ray new_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
         auto new_color = get_color(new_ray.step(), depth - 1, rng);
-        return p_obj->color * new_color;
+        return p_obj->emission + p_obj->color * new_color;
     }
     case Material::Dielectric: {
         float eta1 = insc.value().inside ? p_obj->dielectric_ior : 1.f;
