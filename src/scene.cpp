@@ -10,6 +10,7 @@
 
 #include "color.hpp"
 #include "image.hpp"
+#include "sampling.hpp"
 
 const int n_threads = 4;
 
@@ -150,16 +151,6 @@ std::pair<OptInsc, std::shared_ptr<Object>> Scene::intersect(Ray ray, float max_
     return nearest;
 }
 
-static glm::vec3 get_random_reflection(glm::vec3 normal, std::minstd_rand0 &rng) {
-    std::normal_distribution<float> d(0.f, 1.f);
-    glm::vec3 v = {d(rng), d(rng), d(rng)};
-    v = glm::normalize(v);
-    if (glm::dot(v, normal) < 0)
-        return -v;
-    else
-        return v;
-}
-
 glm::vec3 Scene::get_color(Ray ray, int depth, std::minstd_rand0 &rng) const {
     if (depth == 0)
         return {0.f, 0.f, 0.f};
@@ -170,9 +161,11 @@ glm::vec3 Scene::get_color(Ray ray, int depth, std::minstd_rand0 &rng) const {
 
     switch (p_obj->material) {
     case Material::Diffuse: {
-        Ray new_ray = {ray.at(insc.value().t), get_random_reflection(insc.value().normal, rng)};
+        cosine_sampler S(insc.value().normal, rng);
+        auto [new_dir, pdf] = S.sample();
+        Ray new_ray = {ray.at(insc.value().t), new_dir};
         auto new_color = get_color(new_ray.step(), depth - 1, rng);
-        return p_obj->emission + 2.f * p_obj->color * new_color * glm::dot(new_ray.dir, insc.value().normal);
+        return p_obj->emission + (1.f / pdf) * (p_obj->color / glm::pi<float>()) * new_color * glm::dot(new_ray.dir, insc.value().normal);
     }
     case Material::Metallic: {
         Ray new_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
