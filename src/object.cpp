@@ -89,7 +89,6 @@ OptInsc Object::intersect_box(Ray r) const {
 
 OptInsc Object::intersect_triangle(Ray r) const {
     glm::mat3 m(tri_B - tri_A, tri_C - tri_A, -r.dir);
-    m = glm::transpose(m);
     m = glm::inverse(m);
     glm::vec3 v(r.pos - tri_A);
     v = m * v;

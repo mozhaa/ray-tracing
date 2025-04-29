@@ -41,25 +41,14 @@ void AABB::extend(const Object &obj) {
     }
     }
 
-    auto inv_rot = glm::inverse(obj.rotation);
-
-    extend(inv_rot * (obj.position + glm::vec3(res.min.x, res.min.y, res.min.z)));
-    extend(inv_rot * (obj.position + glm::vec3(res.min.x, res.min.y, res.max.z)));
-    extend(inv_rot * (obj.position + glm::vec3(res.min.x, res.max.y, res.min.z)));
-    extend(inv_rot * (obj.position + glm::vec3(res.min.x, res.max.y, res.max.z)));
-    extend(inv_rot * (obj.position + glm::vec3(res.max.x, res.min.y, res.min.z)));
-    extend(inv_rot * (obj.position + glm::vec3(res.max.x, res.min.y, res.max.z)));
-    extend(inv_rot * (obj.position + glm::vec3(res.max.x, res.max.y, res.min.z)));
-    extend(inv_rot * (obj.position + glm::vec3(res.max.x, res.max.y, res.max.z)));
-
-    // extend(obj.rotation * (obj.position + glm::vec3(res.min.x, res.min.y, res.min.z)));
-    // extend(obj.rotation * (obj.position + glm::vec3(res.min.x, res.min.y, res.max.z)));
-    // extend(obj.rotation * (obj.position + glm::vec3(res.min.x, res.max.y, res.min.z)));
-    // extend(obj.rotation * (obj.position + glm::vec3(res.min.x, res.max.y, res.max.z)));
-    // extend(obj.rotation * (obj.position + glm::vec3(res.max.x, res.min.y, res.min.z)));
-    // extend(obj.rotation * (obj.position + glm::vec3(res.max.x, res.min.y, res.max.z)));
-    // extend(obj.rotation * (obj.position + glm::vec3(res.max.x, res.max.y, res.min.z)));
-    // extend(obj.rotation * (obj.position + glm::vec3(res.max.x, res.max.y, res.max.z)));
+    extend(obj.position + obj.rotation * glm::vec3(res.min.x, res.min.y, res.min.z));
+    extend(obj.position + obj.rotation * glm::vec3(res.min.x, res.min.y, res.max.z));
+    extend(obj.position + obj.rotation * glm::vec3(res.min.x, res.max.y, res.min.z));
+    extend(obj.position + obj.rotation * glm::vec3(res.min.x, res.max.y, res.max.z));
+    extend(obj.position + obj.rotation * glm::vec3(res.max.x, res.min.y, res.min.z));
+    extend(obj.position + obj.rotation * glm::vec3(res.max.x, res.min.y, res.max.z));
+    extend(obj.position + obj.rotation * glm::vec3(res.max.x, res.max.y, res.min.z));
+    extend(obj.position + obj.rotation * glm::vec3(res.max.x, res.max.y, res.max.z));
 }
 
 float AABB::S() const {
