@@ -1,5 +1,7 @@
 #include "object.hpp"
 
+#include <stdexcept>
+
 namespace raytracing {
 
 static float min3(float x, float y, float z) { return std::min(x, std::min(y, z)); }
@@ -28,6 +30,21 @@ static glm::vec3 keep_max(glm::vec3 v) {
 Ray Object::translate(Ray r) const {
     glm::quat inv_rotation = glm::inverse(rotation);
     return {inv_rotation * (r.pos - position), glm::normalize(inv_rotation * r.dir)};
+}
+
+glm::vec3 Object::get_center() const {
+    switch (shape) {
+    case Shape::Box:
+        return position;
+    case Shape::Ellipsoid:
+        return position;
+    case Shape::Plane:
+        throw std::runtime_error("plane has no center");
+    case Shape::Triangle:
+        return (tri_A + tri_B + tri_C) / 3.f;
+    default:
+        throw std::runtime_error("invalid object shape");
+    }
 }
 
 OptInsc Object::intersect_plane(Ray r) const {
@@ -70,6 +87,24 @@ OptInsc Object::intersect_box(Ray r) const {
     return Intersection(t1, glm::normalize(keep_max(r.at(t1) / box_size)));
 }
 
+OptInsc Object::intersect_triangle(Ray r) const {
+    glm::mat3 m(tri_B - tri_A, tri_C - tri_A, -r.dir);
+    m = glm::transpose(m);
+    m = glm::inverse(m);
+    glm::vec3 v(r.pos - tri_A);
+    v = m * v;
+    if (v.x < 0 || v.y < 0 || v.x + v.y > 1 || v.z < 0) {
+        return std::nullopt;
+    }
+    Intersection res(v.z, glm::vec3(0.f));
+    res.normal = glm::normalize(glm::cross(tri_B - tri_A, tri_C - tri_A));
+    if (glm::dot(res.normal, r.dir) < 0) {
+        res.inside = true;
+        res.normal = -res.normal;
+    }
+    return res;
+}
+
 OptInsc Object::intersect(Ray r) const {
     r = translate(r);
     OptInsc result = std::nullopt;
@@ -82,6 +117,9 @@ OptInsc Object::intersect(Ray r) const {
         break;
     case Shape::Box:
         result = intersect_box(r);
+        break;
+    case Shape::Triangle:
+        result = intersect_triangle(r);
         break;
     }
     if (result.has_value()) {

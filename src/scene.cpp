@@ -23,8 +23,7 @@ Scene::Scene(std::string fp) : camera(), objects() {
     }
 
     std::string line;
-
-    std::shared_ptr<Object> object(nullptr);
+    Object *object = nullptr;
 
     while (std::getline(file, line)) {
         std::istringstream iss(line);
@@ -37,19 +36,26 @@ Scene::Scene(std::string fp) : camera(), objects() {
         } else if (command == "SAMPLES") {
             iss >> n_samples;
         } else if (command == "NEW_PRIMITIVE") {
-            if (object.get() != nullptr)
-                objects.push_back(object);
-            object = std::shared_ptr<Object>(new Object());
+            objects.emplace_back();
+            object = &objects[objects.size() - 1];
         } else if (command == "PLANE") {
             object->shape = Shape::Plane;
             iss >> object->plane_normal.x >> object->plane_normal.y >> object->plane_normal.z;
             object->plane_normal = glm::normalize(object->plane_normal);
+            planes.push_back(*object);
+            objects.pop_back();
+            object = &planes[planes.size() - 1];
         } else if (command == "ELLIPSOID") {
             object->shape = Shape::Ellipsoid;
             iss >> object->ellipsoid_radius.x >> object->ellipsoid_radius.y >> object->ellipsoid_radius.z;
         } else if (command == "BOX") {
             object->shape = Shape::Box;
             iss >> object->box_size.x >> object->box_size.y >> object->box_size.z;
+        } else if (command == "TRIANGLE") {
+            object->shape = Shape::Triangle;
+            iss >> object->tri_A.x >> object->tri_A.y >> object->tri_A.z;
+            iss >> object->tri_B.x >> object->tri_B.y >> object->tri_B.z;
+            iss >> object->tri_C.x >> object->tri_C.y >> object->tri_C.z;
         } else if (command == "COLOR") {
             iss >> object->color.x >> object->color.y >> object->color.z;
         } else if (command == "POSITION") {
@@ -83,8 +89,11 @@ Scene::Scene(std::string fp) : camera(), objects() {
         }
     }
 
-    if (object != nullptr)
-        objects.push_back(object);
+    for (auto& obj : objects) {
+        obj.center = obj.get_center();
+    }
+
+    bvh.build(objects);
 }
 
 static void show_progress(float percentage) { std::cerr << "\r" << std::round(percentage * 100) << "%" << std::flush; }
@@ -136,16 +145,49 @@ void Scene::render(std::string fp) const {
     save_ppm(reinterpret_cast<const char *>(image_data.data()), camera.width, camera.height, fp.c_str());
 }
 
-std::pair<OptInsc, std::shared_ptr<Object>> Scene::intersect(Ray ray, float max_distance) const {
-    std::pair<OptInsc, std::shared_ptr<Object>> nearest(std::nullopt, nullptr);
+static float min3(float x, float y, float z) { return std::min(x, std::min(y, z)); }
 
-    for (auto p_obj : objects) {
-        auto insc = p_obj->intersect(ray);
+static float max3(float x, float y, float z) { return std::max(x, std::max(y, z)); }
+
+std::pair<OptInsc, const Object *> Scene::intersect(Ray ray, float max_distance) const {
+    std::pair<OptInsc, const Object *> nearest(std::nullopt, nullptr);
+
+    std::function<void(const Object &)> f = [&](const Object &obj) {
+        auto insc = obj.intersect(ray);
         if (insc && insc.value().t < max_distance) {
-            nearest.second = p_obj;
+            nearest.second = &obj;
             max_distance = insc.value().t;
             nearest.first = insc.value();
         }
+    };
+
+    float min_t = std::numeric_limits<float>::infinity();
+
+    // does ray intersect aabb
+    std::function<bool(const AABB &)> pred = [&](const AABB &aabb) {
+        glm::vec3 tm = (aabb.min - ray.pos) / ray.dir;
+        glm::vec3 tM = (aabb.max - ray.pos) / ray.dir;
+        float t1 = max3(std::min(tm.x, tM.x), std::min(tm.y, tM.y), std::min(tm.z, tM.z));
+        float t2 = min3(std::max(tm.x, tM.x), std::max(tm.y, tM.y), std::max(tm.z, tM.z));
+        if (t1 > t2 || t2 < 0) {
+            return false;
+        }
+
+        if (t1 < 0) {
+            t1 = t2;
+        }
+        if (min_t < t1) {
+            return false;
+        } else {
+            min_t = t1;
+            return true;
+        }
+    };
+
+    bvh.apply(objects, f, pred);
+
+    for (auto& obj : planes) {
+        f(obj);
     }
 
     return nearest;
