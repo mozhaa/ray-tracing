@@ -21,8 +21,8 @@ struct AABB {
     glm::vec3 min = {inf, inf, inf};
     glm::vec3 max = {-inf, -inf, -inf};
 
-    void extend(glm::vec3 p);
-    void extend(AABB aabb);
+    void extend(const glm::vec3& p);
+    void extend(const AABB& aabb);
     void extend(const Object &obj);
     float S() const;
 };

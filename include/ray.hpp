@@ -22,7 +22,7 @@ struct Intersection {
     glm::vec3 normal;
     bool inside;
 
-    Intersection(float t, glm::vec3 normal, bool inside = false);
+    Intersection(float t, const glm::vec3& normal, bool inside = false);
 };
 
 using OptInsc = std::optional<Intersection>;

@@ -5,12 +5,12 @@
 
 namespace raytracing {
 
-void AABB::extend(glm::vec3 p) {
+void AABB::extend(const glm::vec3& p) {
     min = glm::min(min, p);
     max = glm::max(max, p);
 }
 
-void AABB::extend(AABB aabb) {
+void AABB::extend(const AABB& aabb) {
     min = glm::min(min, aabb.min);
     max = glm::max(max, aabb.max);
 }

@@ -4,7 +4,7 @@ namespace raytracing {
 
 unsigned char to_pixel(float x) { return static_cast<unsigned char>(std::round(x * 255.f)); }
 
-static glm::vec3 gamma_correction(glm::vec3 c) {
+static glm::vec3 gamma_correction(const glm::vec3& c) {
     const double p = 0.45454545454545454545;
     return {std::pow(c.x, p), std::pow(c.y, p), std::pow(c.z, p)};
 }
