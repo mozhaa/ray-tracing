@@ -160,8 +160,6 @@ void Scene::render(std::string fp, int n_threads) const {
 std::pair<OptInsc, const Object *> Scene::intersect(Ray ray, float max_distance) const {
     std::pair<OptInsc, const Object *> nearest(std::nullopt, nullptr);
 
-    bvh.intersect(objects, ray, nearest, max_distance);
-
     for (auto& obj : planes) {
         auto insc = obj.intersect(ray);
         if (insc && insc.value().t < max_distance) {
@@ -169,9 +167,10 @@ std::pair<OptInsc, const Object *> Scene::intersect(Ray ray, float max_distance)
             max_distance = insc.value().t;
             nearest.first = insc.value();
         }
-    
-    
     }
+
+    bvh.intersect(objects, ray, nearest, max_distance);
+    
     return nearest;
 }
 

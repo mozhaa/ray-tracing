@@ -154,14 +154,8 @@ void BVH::intersect(
         return;
     }
 
-    if (t1 < 0) {
-        if (t2 >= max_distance) {
-            return;
-        }
-    } else {
-        if (t1 >= max_distance) {
-            return;
-        }
+    if (t1 >= max_distance) {
+        return;
     }
     if (node.left_child == -1 || node.right_child == -1) {
         for (int j = node.first_primitive_id; j < node.first_primitive_id + node.primitive_count; ++j) {
