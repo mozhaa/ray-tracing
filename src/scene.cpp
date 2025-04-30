@@ -12,8 +12,6 @@
 #include "image.hpp"
 #include "sampling.hpp"
 
-const int n_threads = 4;
-
 namespace raytracing {
 
 Scene::Scene(std::string fp) : camera(), objects() {
@@ -62,6 +60,8 @@ Scene::Scene(std::string fp) : camera(), objects() {
             iss >> object->position.x >> object->position.y >> object->position.z;
         } else if (command == "ROTATION") {
             iss >> object->rotation.x >> object->rotation.y >> object->rotation.z >> object->rotation.w;
+            object->rotation = glm::normalize(object->rotation);
+            object->inv_rotation = glm::inverse(object->rotation);
         } else if (command == "CAMERA_POSITION") {
             iss >> camera.position.x >> camera.position.y >> camera.position.z;
         } else if (command == "CAMERA_RIGHT") {
@@ -98,21 +98,21 @@ Scene::Scene(std::string fp) : camera(), objects() {
 
 static void show_progress(float percentage) { std::cerr << "\r" << std::round(percentage * 100) << "%" << std::flush; }
 
-void Scene::render(std::string fp) const {
+void Scene::render(std::string fp, int n_threads) const {
     int total_pixels = camera.width * camera.height;
     std::vector<Pixel> image_data(total_pixels);
     std::atomic_int pixels_done = 0;
 
     auto fill_area = [&](const int start, const int end) {
-        std::minstd_rand0 rng;
+        RandomContext ctx;
         for (int t = start; t < end; ++t) {
             auto j = t % camera.height;
             auto i = (t - j) / camera.height;
             std::uniform_real_distribution<float> d(0.f, 1.f);
             glm::vec3 result_color(0.f);
             for (int s = 0; s < n_samples; ++s) {
-                auto ray = camera.get_ray(i + d(rng), j + d(rng));
-                auto color = get_color(ray, ray_depth, rng);
+                auto ray = camera.get_ray(i + d(ctx.rng), j + d(ctx.rng));
+                auto color = get_color(ray, ray_depth, ctx);
                 result_color += color;
             }
 
@@ -187,7 +187,7 @@ std::pair<OptInsc, const Object *> Scene::intersect(Ray ray, float max_distance)
     return nearest;
 }
 
-glm::vec3 Scene::get_color(Ray ray, int depth, std::minstd_rand0 &rng) const {
+glm::vec3 Scene::get_color(Ray ray, int depth, RandomContext& ctx) const {
     if (depth == 0)
         return {0.f, 0.f, 0.f};
 
@@ -197,15 +197,14 @@ glm::vec3 Scene::get_color(Ray ray, int depth, std::minstd_rand0 &rng) const {
 
     switch (p_obj->material) {
     case Material::Diffuse: {
-        cosine_sampler S(insc.value().normal, rng);
-        auto [new_dir, pdf] = S.sample();
+        auto [new_dir, pdf] = ctx.S.sample(insc.value().normal);
         Ray new_ray = {ray.at(insc.value().t), new_dir};
-        auto new_color = get_color(new_ray.step(), depth - 1, rng);
+        auto new_color = get_color(new_ray.step(), depth - 1, ctx);
         return p_obj->emission + (1.f / pdf) * (p_obj->color / glm::pi<float>()) * new_color * glm::dot(new_ray.dir, insc.value().normal);
     }
     case Material::Metallic: {
         Ray new_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
-        auto new_color = get_color(new_ray.step(), depth - 1, rng);
+        auto new_color = get_color(new_ray.step(), depth - 1, ctx);
         return p_obj->emission + p_obj->color * new_color;
     }
     case Material::Dielectric: {
@@ -219,13 +218,13 @@ glm::vec3 Scene::get_color(Ray ray, int depth, std::minstd_rand0 &rng) const {
 
         float sin_theta2 = eta1 / eta2 * std::sqrt(1 - std::pow(cos_theta, 2));
 
-        if ((std::abs(sin_theta2) > 1) || (r > 0.f && (r >= 1.f || std::bernoulli_distribution(r)(rng)))) {
+        if ((std::abs(sin_theta2) > 1) || (r > 0.f && (r >= 1.f || std::bernoulli_distribution(r)(ctx.rng)))) {
             Ray reflected_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
-            glm::vec3 reflected_color = get_color(reflected_ray.step(), depth - 1, rng);
+            glm::vec3 reflected_color = get_color(reflected_ray.step(), depth - 1, ctx);
             return reflected_color;
         } else {
             Ray refracted_ray = {ray.at(insc.value().t), glm::refract(ray.dir, insc.value().normal, eta)};
-            glm::vec3 refracted_color = get_color(refracted_ray.step(), depth - 1, rng);
+            glm::vec3 refracted_color = get_color(refracted_ray.step(), depth - 1, ctx);
             if (!insc.value().inside)
                 refracted_color *= p_obj->color;
             return refracted_color;

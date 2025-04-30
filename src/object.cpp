@@ -28,8 +28,7 @@ static glm::vec3 keep_max(glm::vec3 v) {
 }
 
 Ray Object::translate(Ray r) const {
-    glm::quat inv_rotation = glm::inverse(rotation);
-    return {inv_rotation * (r.pos - position), glm::normalize(inv_rotation * r.dir)};
+    return {inv_rotation * (r.pos - position), inv_rotation * r.dir};
 }
 
 glm::vec3 Object::get_center() const {
@@ -38,10 +37,10 @@ glm::vec3 Object::get_center() const {
         return position;
     case Shape::Ellipsoid:
         return position;
-    case Shape::Plane:
-        throw std::runtime_error("plane has no center");
     case Shape::Triangle:
         return (tri_A + tri_B + tri_C) / 3.f;
+    case Shape::Plane:
+        throw std::runtime_error("plane has no center");
     default:
         throw std::runtime_error("invalid object shape");
     }
@@ -95,8 +94,7 @@ OptInsc Object::intersect_triangle(Ray r) const {
     if (v.x < 0 || v.y < 0 || v.x + v.y > 1 || v.z < 0) {
         return std::nullopt;
     }
-    Intersection res(v.z, glm::vec3(0.f));
-    res.normal = glm::normalize(glm::cross(tri_B - tri_A, tri_C - tri_A));
+    Intersection res(v.z, glm::normalize(glm::cross(tri_B - tri_A, tri_C - tri_A)));
     if (glm::dot(res.normal, r.dir) < 0) {
         res.inside = true;
         res.normal = -res.normal;
@@ -125,7 +123,7 @@ OptInsc Object::intersect(Ray r) const {
         result.value().inside = glm::dot(-r.dir, result.value().normal) < 0;
         if (result.value().inside)
             result.value().normal *= -1;
-        result.value().normal = glm::normalize(rotation * result.value().normal);
+        result.value().normal = rotation * result.value().normal;
     }
     return result;
 }

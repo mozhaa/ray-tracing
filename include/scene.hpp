@@ -8,6 +8,7 @@
 #include "object.hpp"
 #include "ray.hpp"
 #include "bvh.hpp"
+#include "random_context.hpp"
 
 namespace raytracing {
 
@@ -21,11 +22,11 @@ struct Scene {
     int n_samples;
 
     Scene(std::string fp);
-    void render(std::string fp) const;
+    void render(std::string fp, int n_threads) const;
 
 private:
     std::pair<OptInsc, const Object*> intersect(Ray ray, float max_distance = std::numeric_limits<float>::infinity()) const;
-    glm::vec3 get_color(Ray ray, int depth, std::minstd_rand0 &rng) const;
+    glm::vec3 get_color(Ray ray, int depth, RandomContext& ctx) const;
 };
 
 } // namespace raytracing
