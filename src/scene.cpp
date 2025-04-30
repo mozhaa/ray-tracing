@@ -94,7 +94,13 @@ Scene::Scene(std::string fp) : camera(), objects() {
         obj.center = obj.get_center();
     }
 
+    auto begin = std::chrono::steady_clock::now();
+    
     bvh.build(objects);
+
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<float> delta = end - begin;
+    std::cerr << "BVH build in " << delta.count() << "[s]" << std::endl;
 }
 
 static void show_progress(float percentage) { std::cerr << "\r" << std::round(percentage * 100) << "%" << std::flush; }

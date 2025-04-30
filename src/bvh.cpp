@@ -62,15 +62,16 @@ int BVH::build_node(std::vector<Object> &primitives, int first, int count) {
     }
 
     Node result;
-    for (int i = first; i < first + count; ++i) {
-        result.aabb.extend(primitives[i]);
-    }
-    result.left_child = -1;
-    result.right_child = -1;
     result.first_primitive_id = first;
     result.primitive_count = count;
 
     if (count <= 4) {
+    no_split:
+        for (int i = first; i < first + count; ++i) {
+            result.aabb.extend(primitives[i]);
+        }
+        result.left_child = -1;
+        result.right_child = -1;
         nodes.push_back(result);
         return nodes.size() - 1;
     }
@@ -78,9 +79,9 @@ int BVH::build_node(std::vector<Object> &primitives, int first, int count) {
     std::function<bool(const Object &, const Object &)> cmp_x = [&](const Object &x, const Object &y) { return x.center.x < y.center.x; };
     std::function<bool(const Object &, const Object &)> cmp_y = [&](const Object &x, const Object &y) { return x.center.y < y.center.y; };
     std::function<bool(const Object &, const Object &)> cmp_z = [&](const Object &x, const Object &y) { return x.center.z < y.center.z; };
-    std::vector<std::function<bool(const Object &, const Object &)>*> cmps{&cmp_x, &cmp_y, &cmp_z};
+    std::vector<std::function<bool(const Object &, const Object &)> *> cmps{&cmp_x, &cmp_y, &cmp_z};
 
-    float best_score = result.aabb.S() * count;
+    float best_score = 0.f;
     int best_i = -1;
     int best_axis = -1;
     std::vector<std::vector<AABB>> left_aabbs(3, std::vector<AABB>());
@@ -88,7 +89,7 @@ int BVH::build_node(std::vector<Object> &primitives, int first, int count) {
 
     for (int axis = 0; axis < 3; ++axis) {
         std::sort(&primitives[first], &primitives[first + count], *cmps[axis]);
-    
+
         AABB aabb;
         for (int i = first; i < first + count - 1; ++i) {
             aabb.extend(primitives[i]);
@@ -98,6 +99,11 @@ int BVH::build_node(std::vector<Object> &primitives, int first, int count) {
         for (int i = first + count - 1; i > first; --i) {
             aabb.extend(primitives[i]);
             right_aabbs[axis].push_back(aabb);
+        }
+        if (axis == 0) {
+            result.aabb = aabb;
+            result.aabb.extend(primitives[first]);
+            best_score = result.aabb.S() * count;
         }
 
         for (int i = 0; i < count - 1; ++i) {
@@ -111,12 +117,11 @@ int BVH::build_node(std::vector<Object> &primitives, int first, int count) {
     }
 
     if (best_i == -1) {
-        nodes.push_back(result);
-        return nodes.size() - 1;
+        goto no_split;
     }
 
     if (best_axis != 2) {
-        std::sort(&primitives[first], &primitives[first + count], *cmps[best_axis]);    
+        std::sort(&primitives[first], &primitives[first + count], *cmps[best_axis]);
     }
 
     nodes.push_back(result);
