@@ -33,10 +33,9 @@ std::pair<glm::vec3, float> uniform_sampler::sample(glm::vec3 normal) const {
     return {from_spherical(theta, phi, normal), glm::one_over_two_pi<float>()};
 }
 
-cosine_sampler::cosine_sampler(std::minstd_rand0 &rng) : sampler(rng) {}
+cosine_sampler::cosine_sampler(std::minstd_rand0 &rng) : sampler(rng), d(0.f, 1.f) {}
 
 std::pair<glm::vec3, float> cosine_sampler::sample(glm::vec3 normal) const {
-    std::uniform_real_distribution<float> d(0.f, 1.f);
     float e1 = d(rng), e2 = d(rng);
     float theta = std::acos(std::sqrt(e1));
     float phi = glm::two_pi<float>() * e2;

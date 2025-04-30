@@ -26,6 +26,7 @@ struct uniform_sampler : public sampler {
 };
 
 struct cosine_sampler : public sampler {
+    std::uniform_real_distribution<float> d;
     cosine_sampler(std::minstd_rand0& rng);
     std::pair<glm::vec3, float> sample(glm::vec3 normal) const override;
 };
