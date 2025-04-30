@@ -6,3 +6,7 @@ test
 *.txt
 *.ppm
 *.png
+*.perf
+*.svg
+*.data
+*.folded

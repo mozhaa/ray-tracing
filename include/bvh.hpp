@@ -41,9 +41,10 @@ struct BVH {
 
     int build_node(std::vector<Object> &primitives, int first, int count);
     void build(std::vector<Object> &primitives);
-    void apply(const std::vector<Object> &primitives,
-               std::function<void(const Object &)> f,
-               std::function<bool(const AABB &)> pred,
+    void intersect(const std::vector<Object> &primitives,
+               Ray r,
+               std::pair<OptInsc, const Object *>& nearest,
+               float& max_distance,
                int i = -2) const;
 };
 

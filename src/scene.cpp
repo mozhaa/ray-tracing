@@ -157,44 +157,19 @@ void Scene::render(std::string fp, int n_threads) const {
     save_ppm(reinterpret_cast<const char *>(image_data.data()), camera.width, camera.height, fp.c_str());
 }
 
-static float min3(float x, float y, float z) { return std::min(x, std::min(y, z)); }
-
-static float max3(float x, float y, float z) { return std::max(x, std::max(y, z)); }
-
 std::pair<OptInsc, const Object *> Scene::intersect(Ray ray, float max_distance) const {
     std::pair<OptInsc, const Object *> nearest(std::nullopt, nullptr);
 
-    std::function<void(const Object &)> f = [&](const Object &obj) {
+    for (auto& obj : planes) {
         auto insc = obj.intersect(ray);
         if (insc && insc.value().t < max_distance) {
             nearest.second = &obj;
             max_distance = insc.value().t;
             nearest.first = insc.value();
         }
-    };
-
-    // does ray intersect aabb
-    std::function<bool(const AABB &)> pred = [&](const AABB &aabb) {
-        glm::vec3 tm = (aabb.min - ray.pos) / ray.dir;
-        glm::vec3 tM = (aabb.max - ray.pos) / ray.dir;
-        float t1 = max3(std::min(tm.x, tM.x), std::min(tm.y, tM.y), std::min(tm.z, tM.z));
-        float t2 = min3(std::max(tm.x, tM.x), std::max(tm.y, tM.y), std::max(tm.z, tM.z));
-        if (t1 > t2 || t2 < 0) {
-            return false;
-        }
-
-        if (t1 < 0) {
-            return t2 < max_distance;
-        } else {
-            return t1 < max_distance;
-        }
-    };
-
-    bvh.apply(objects, f, pred);
-
-    for (auto& obj : planes) {
-        f(obj);
     }
+
+    bvh.intersect(objects, ray, nearest, max_distance);
 
     return nearest;
 }

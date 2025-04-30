@@ -135,24 +135,46 @@ int BVH::build_node(std::vector<Object> &primitives, int first, int count) {
 
 void BVH::build(std::vector<Object> &primitives) { root = build_node(primitives, 0, primitives.size()); }
 
-void BVH::apply(const std::vector<Object> &primitives,
-                std::function<void(const Object &)> f,
-                std::function<bool(const AABB &)> pred,
-                int i) const {
+static float min3(float x, float y, float z) { return std::min(x, std::min(y, z)); }
+
+static float max3(float x, float y, float z) { return std::max(x, std::max(y, z)); }
+
+void BVH::intersect(
+    const std::vector<Object> &primitives, Ray r, std::pair<OptInsc, const Object *> &nearest, float &max_distance, int i) const {
     if (i == -2) {
         i = root;
     }
 
     auto &node = nodes[i];
-    if (pred(node.aabb)) {
-        if (node.left_child == -1 || node.right_child == -1) {
-            for (int j = node.first_primitive_id; j < node.first_primitive_id + node.primitive_count; ++j) {
-                f(primitives[j]);
-            }
-        } else {
-            apply(primitives, f, pred, node.left_child);
-            apply(primitives, f, pred, node.right_child);
+    glm::vec3 tm = (node.aabb.min - r.pos) / r.dir;
+    glm::vec3 tM = (node.aabb.max - r.pos) / r.dir;
+    float t1 = max3(std::min(tm.x, tM.x), std::min(tm.y, tM.y), std::min(tm.z, tM.z));
+    float t2 = min3(std::max(tm.x, tM.x), std::max(tm.y, tM.y), std::max(tm.z, tM.z));
+    if (t1 > t2 || t2 < 0) {
+        return;
+    }
+
+    if (t1 < 0) {
+        if (t2 >= max_distance) {
+            return;
         }
+    } else {
+        if (t1 >= max_distance) {
+            return;
+        }
+    }
+    if (node.left_child == -1 || node.right_child == -1) {
+        for (int j = node.first_primitive_id; j < node.first_primitive_id + node.primitive_count; ++j) {
+            auto insc = primitives[j].intersect(r);
+            if (insc && insc.value().t < max_distance) {
+                nearest.second = &primitives[j];
+                max_distance = insc.value().t;
+                nearest.first = insc.value();
+            }
+        }
+    } else {
+        intersect(primitives, r, nearest, max_distance, node.left_child);
+        intersect(primitives, r, nearest, max_distance, node.right_child);
     }
 }
 
