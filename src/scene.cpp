@@ -111,8 +111,8 @@ void Scene::render(std::string fp, int n_threads) const {
     std::atomic_int pixels_done = 0;
     ScreenSplitter<8> splitter(camera.width, camera.height);
 
-    auto job = [&]() {
-        RandomContext ctx;
+    auto job = [&](int i) {
+        RandomContext ctx(i);
         std::uniform_real_distribution<float> d(0.f, 1.f);
         while (true) {
             auto [x, y, w, h] = splitter.get();
@@ -129,7 +129,7 @@ void Scene::render(std::string fp, int n_threads) const {
                     }
     
                     image_data[i + j * camera.width] = aces_tonemap(result_color / static_cast<float>(n_samples));
-                    ++pixels_done;    
+                    ++pixels_done;
                 }
             }
         }
@@ -139,7 +139,7 @@ void Scene::render(std::string fp, int n_threads) const {
     work_threads.reserve(n_threads);
 
     for (int i = 0; i < n_threads; ++i) {
-        work_threads.emplace_back(std::thread(job));
+        work_threads.emplace_back(std::thread(job, i));
     }
 
     while (pixels_done != total_pixels) {
