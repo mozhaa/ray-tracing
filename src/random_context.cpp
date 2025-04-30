@@ -2,6 +2,6 @@
 
 namespace raytracing {
 
-RandomContext::RandomContext(int seed = 1) : rng(seed), S(rng) {}
+RandomContext::RandomContext(int seed) : rng(seed), S(rng) {}
 
 } // namespace raytracing
