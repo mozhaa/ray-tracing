@@ -142,7 +142,7 @@ static float min3(float x, float y, float z) { return std::min(x, std::min(y, z)
 static float max3(float x, float y, float z) { return std::max(x, std::max(y, z)); }
 
 void BVH::intersect(
-    const std::vector<Object> &primitives, Ray r, std::pair<OptInsc, const Object *> &nearest, float &max_distance, int i) const {
+    const std::vector<Object> &primitives, const Ray& r, std::pair<OptInsc, const Object *> &nearest, float &max_distance, int i) const {
     if (i == -2) {
         i = root;
     }

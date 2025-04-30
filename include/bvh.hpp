@@ -43,7 +43,7 @@ struct BVH {
     int build_node(std::vector<Object> &primitives, int first, int count);
     void build(std::vector<Object> &primitives);
     void intersect(const std::vector<Object> &primitives,
-               Ray r,
+               const Ray& r,
                std::pair<OptInsc, const Object *>& nearest,
                float& max_distance,
                int i = -2) const;

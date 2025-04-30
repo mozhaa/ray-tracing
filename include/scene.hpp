@@ -25,8 +25,8 @@ struct Scene {
     void render(std::string fp, int n_threads) const;
 
 private:
-    std::pair<OptInsc, const Object*> intersect(Ray ray, float max_distance = std::numeric_limits<float>::infinity()) const;
-    glm::vec3 get_color(Ray ray, int depth, RandomContext& ctx) const;
+    std::pair<OptInsc, const Object*> intersect(const Ray& ray, float max_distance = std::numeric_limits<float>::infinity()) const;
+    glm::vec3 get_color(const Ray& ray, int depth, RandomContext& ctx) const;
 };
 
 } // namespace raytracing

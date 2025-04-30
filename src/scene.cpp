@@ -157,7 +157,7 @@ void Scene::render(std::string fp, int n_threads) const {
     save_ppm(reinterpret_cast<const char *>(image_data.data()), camera.width, camera.height, fp.c_str());
 }
 
-std::pair<OptInsc, const Object *> Scene::intersect(Ray ray, float max_distance) const {
+std::pair<OptInsc, const Object *> Scene::intersect(const Ray& ray, float max_distance) const {
     std::pair<OptInsc, const Object *> nearest(std::nullopt, nullptr);
 
     for (auto& obj : planes) {
@@ -174,7 +174,7 @@ std::pair<OptInsc, const Object *> Scene::intersect(Ray ray, float max_distance)
     return nearest;
 }
 
-glm::vec3 Scene::get_color(Ray ray, int depth, RandomContext& ctx) const {
+glm::vec3 Scene::get_color(const Ray& ray, int depth, RandomContext& ctx) const {
     if (depth == 0)
         return {0.f, 0.f, 0.f};
 
@@ -186,12 +186,14 @@ glm::vec3 Scene::get_color(Ray ray, int depth, RandomContext& ctx) const {
     case Material::Diffuse: {
         auto [new_dir, pdf] = ctx.S.sample(insc.value().normal);
         Ray new_ray = {ray.at(insc.value().t), new_dir};
-        auto new_color = get_color(new_ray.step(), depth - 1, ctx);
+        auto s_ray = new_ray.step();
+        auto new_color = get_color(s_ray, depth - 1, ctx);
         return p_obj->emission + (1.f / pdf) * (p_obj->color / glm::pi<float>()) * new_color * glm::dot(new_ray.dir, insc.value().normal);
     }
     case Material::Metallic: {
         Ray new_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
-        auto new_color = get_color(new_ray.step(), depth - 1, ctx);
+        auto s_ray = new_ray.step();
+        auto new_color = get_color(s_ray, depth - 1, ctx);
         return p_obj->emission + p_obj->color * new_color;
     }
     case Material::Dielectric: {
@@ -207,11 +209,13 @@ glm::vec3 Scene::get_color(Ray ray, int depth, RandomContext& ctx) const {
 
         if ((std::abs(sin_theta2) > 1) || (r > 0.f && (r >= 1.f || std::bernoulli_distribution(r)(ctx.rng)))) {
             Ray reflected_ray = {ray.at(insc.value().t), glm::reflect(ray.dir, insc.value().normal)};
-            glm::vec3 reflected_color = get_color(reflected_ray.step(), depth - 1, ctx);
+            auto s_reflected_ray = reflected_ray.step();
+            glm::vec3 reflected_color = get_color(s_reflected_ray, depth - 1, ctx);
             return reflected_color;
         } else {
             Ray refracted_ray = {ray.at(insc.value().t), glm::refract(ray.dir, insc.value().normal, eta)};
-            glm::vec3 refracted_color = get_color(refracted_ray.step(), depth - 1, ctx);
+            auto s_refracted_ray = refracted_ray.step();
+            glm::vec3 refracted_color = get_color(s_refracted_ray, depth - 1, ctx);
             if (!insc.value().inside)
                 refracted_color *= p_obj->color;
             return refracted_color;

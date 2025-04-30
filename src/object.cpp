@@ -27,7 +27,7 @@ static glm::vec3 keep_max(glm::vec3 v) {
     return u;
 }
 
-Ray Object::translate(Ray r) const {
+Ray Object::translate(const Ray& r) const {
     return {inv_rotation * (r.pos - position), inv_rotation * r.dir};
 }
 
@@ -46,14 +46,14 @@ glm::vec3 Object::get_center() const {
     }
 }
 
-OptInsc Object::intersect_plane(Ray r) const {
+OptInsc Object::intersect_plane(const Ray& r) const {
     float t = -glm::dot(r.pos, plane_normal) / glm::dot(r.dir, plane_normal);
     if (t >= 0)
         return Intersection(t, plane_normal);
     return std::nullopt;
 }
 
-OptInsc Object::intersect_ellipsoid(Ray r) const {
+OptInsc Object::intersect_ellipsoid(const Ray& r) const {
     float a = glm::dot(r.dir / ellipsoid_radius, r.dir / ellipsoid_radius);
     float b = 2 * glm::dot(r.pos / ellipsoid_radius, r.dir / ellipsoid_radius);
     float c = glm::dot(r.pos / ellipsoid_radius, r.pos / ellipsoid_radius) - 1;
@@ -72,7 +72,7 @@ OptInsc Object::intersect_ellipsoid(Ray r) const {
         return Intersection(tm, glm::normalize(r.at(tm) / (ellipsoid_radius * ellipsoid_radius)));
 }
 
-OptInsc Object::intersect_box(Ray r) const {
+OptInsc Object::intersect_box(const Ray& r) const {
     glm::vec3 tm = (-box_size - r.pos) / r.dir;
     glm::vec3 tM = (box_size - r.pos) / r.dir;
     float t1 = max3(std::min(tm.x, tM.x), std::min(tm.y, tM.y), std::min(tm.z, tM.z));
@@ -86,7 +86,7 @@ OptInsc Object::intersect_box(Ray r) const {
     return Intersection(t1, glm::normalize(keep_max(r.at(t1) / box_size)));
 }
 
-OptInsc Object::intersect_triangle(Ray r) const {
+OptInsc Object::intersect_triangle(const Ray& r) const {
     glm::mat3 m(tri_B - tri_A, tri_C - tri_A, -r.dir);
     m = glm::inverse(m);
     glm::vec3 v(r.pos - tri_A);
@@ -102,25 +102,25 @@ OptInsc Object::intersect_triangle(Ray r) const {
     return res;
 }
 
-OptInsc Object::intersect(Ray r) const {
-    r = translate(r);
+OptInsc Object::intersect(const Ray& r) const {
+    Ray tr = translate(r);
     OptInsc result = std::nullopt;
     switch (shape) {
     case Shape::Plane:
-        result = intersect_plane(r);
+        result = intersect_plane(tr);
         break;
     case Shape::Ellipsoid:
-        result = intersect_ellipsoid(r);
+        result = intersect_ellipsoid(tr);
         break;
     case Shape::Box:
-        result = intersect_box(r);
+        result = intersect_box(tr);
         break;
     case Shape::Triangle:
-        result = intersect_triangle(r);
+        result = intersect_triangle(tr);
         break;
     }
     if (result.has_value()) {
-        result.value().inside = glm::dot(-r.dir, result.value().normal) < 0;
+        result.value().inside = glm::dot(-tr.dir, result.value().normal) < 0;
         if (result.value().inside)
             result.value().normal *= -1;
         result.value().normal = rotation * result.value().normal;

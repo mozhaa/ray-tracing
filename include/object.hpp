@@ -34,16 +34,16 @@ struct Object {
     glm::vec3 tri_C = {0.f, 0.f, 0.f};
     float dielectric_ior = 1.33f;
 
-    Ray translate(Ray r) const;
-    OptInsc intersect(Ray r) const;
+    Ray translate(const Ray& r) const;
+    OptInsc intersect(const Ray& r) const;
 
     glm::vec3 get_center() const;
 
 private:
-    OptInsc intersect_plane(Ray r) const;
-    OptInsc intersect_ellipsoid(Ray r) const;
-    OptInsc intersect_box(Ray r) const;
-    OptInsc intersect_triangle(Ray r) const;
+    OptInsc intersect_plane(const Ray& r) const;
+    OptInsc intersect_ellipsoid(const Ray& r) const;
+    OptInsc intersect_box(const Ray& r) const;
+    OptInsc intersect_triangle(const Ray& r) const;
 };
 
 } // namespace raytracing
