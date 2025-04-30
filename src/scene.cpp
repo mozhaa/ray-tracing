@@ -11,6 +11,7 @@
 #include "color.hpp"
 #include "image.hpp"
 #include "sampling.hpp"
+#include "screen_splitter.hpp"
 
 namespace raytracing {
 
@@ -102,22 +103,29 @@ void Scene::render(std::string fp, int n_threads) const {
     int total_pixels = camera.width * camera.height;
     std::vector<Pixel> image_data(total_pixels);
     std::atomic_int pixels_done = 0;
+    ScreenSplitter<8> splitter(camera.width, camera.height);
 
-    auto fill_area = [&](const int start, const int end) {
+    auto job = [&]() {
         RandomContext ctx;
-        for (int t = start; t < end; ++t) {
-            auto j = t % camera.height;
-            auto i = (t - j) / camera.height;
-            std::uniform_real_distribution<float> d(0.f, 1.f);
-            glm::vec3 result_color(0.f);
-            for (int s = 0; s < n_samples; ++s) {
-                auto ray = camera.get_ray(i + d(ctx.rng), j + d(ctx.rng));
-                auto color = get_color(ray, ray_depth, ctx);
-                result_color += color;
+        std::uniform_real_distribution<float> d(0.f, 1.f);
+        while (true) {
+            auto [x, y, w, h] = splitter.get();
+            if (x == -1) {
+                break;
             }
-
-            image_data[i + j * camera.width] = aces_tonemap(result_color / static_cast<float>(n_samples));
-            ++pixels_done;
+            for (int i = x; i < w; ++i) {
+                for (int j = y; j < h; ++j) {
+                    glm::vec3 result_color(0.f);
+                    for (int s = 0; s < n_samples; ++s) {
+                        auto ray = camera.get_ray(i + d(ctx.rng), j + d(ctx.rng));
+                        auto color = get_color(ray, ray_depth, ctx);
+                        result_color += color;
+                    }
+    
+                    image_data[i + j * camera.width] = aces_tonemap(result_color / static_cast<float>(n_samples));
+                    ++pixels_done;    
+                }
+            }
         }
     };
 
@@ -125,9 +133,7 @@ void Scene::render(std::string fp, int n_threads) const {
     work_threads.reserve(n_threads);
 
     for (int i = 0; i < n_threads; ++i) {
-        int start = std::round(total_pixels * static_cast<float>(i) / n_threads);
-        int end = std::round(total_pixels * static_cast<float>(i + 1) / n_threads);
-        work_threads.emplace_back(std::thread(fill_area, start, end));
+        work_threads.emplace_back(std::thread(job));
     }
 
     while (pixels_done != total_pixels) {
