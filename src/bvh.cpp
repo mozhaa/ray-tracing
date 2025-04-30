@@ -124,6 +124,8 @@ int BVH::build_node(std::vector<Object> &primitives, int first, int count) {
         std::sort(&primitives[first], &primitives[first + count], *cmps[best_axis]);
     }
 
+    result.split_axis = best_axis;
+
     nodes.push_back(result);
     int result_i = nodes.size() - 1;
 
@@ -167,8 +169,27 @@ void BVH::intersect(
             }
         }
     } else {
-        intersect(primitives, r, nearest, max_distance, node.left_child);
-        intersect(primitives, r, nearest, max_distance, node.right_child);
+        bool reverse_order = false;
+        switch (node.split_axis) {
+        case 0:
+            reverse_order = r.dir.x < 0;
+            break;
+        case 1:
+            reverse_order = r.dir.y < 0;
+            break;
+        case 2:
+            reverse_order = r.dir.z < 0;
+            break;
+        default:
+            throw std::runtime_error("split axis must be 0, 1 or 2");
+        }
+        if (reverse_order) {
+            intersect(primitives, r, nearest, max_distance, node.right_child);
+            intersect(primitives, r, nearest, max_distance, node.left_child);
+        } else {
+            intersect(primitives, r, nearest, max_distance, node.left_child);
+            intersect(primitives, r, nearest, max_distance, node.right_child);
+        }
     }
 }
 

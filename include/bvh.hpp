@@ -29,10 +29,11 @@ struct AABB {
 
 struct Node {
     AABB aabb;
-    int left_child;
-    int right_child;
+    int left_child = -1;
+    int right_child = -1;
     int first_primitive_id;
     int primitive_count;
+    int split_axis = -1;
 };
 
 struct BVH {
