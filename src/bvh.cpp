@@ -62,8 +62,8 @@ int BVH::build_node(std::vector<Object> &primitives, int first, int count) {
     }
 
     Node result;
-    for (const auto &p : primitives) {
-        result.aabb.extend(p);
+    for (int i = first; i < first + count; ++i) {
+        result.aabb.extend(primitives[i]);
     }
     result.left_child = -1;
     result.right_child = -1;
@@ -71,13 +71,9 @@ int BVH::build_node(std::vector<Object> &primitives, int first, int count) {
     result.primitive_count = count;
 
     if (count <= 4) {
-no_split:
         nodes.push_back(result);
         return nodes.size() - 1;
     }
-
-    std::vector<int> indices(primitives.size(), 0);
-    std::iota(indices.begin(), indices.end(), 0);
 
     std::function<bool(const Object &, const Object &)> cmp_x = [&](const Object &x, const Object &y) { return x.center.x < y.center.x; };
     std::function<bool(const Object &, const Object &)> cmp_y = [&](const Object &x, const Object &y) { return x.center.y < y.center.y; };
@@ -95,12 +91,12 @@ no_split:
     
         AABB aabb;
         for (int i = first; i < first + count - 1; ++i) {
-            aabb.extend(primitives[indices[i]]);
+            aabb.extend(primitives[i]);
             left_aabbs[axis].push_back(aabb);
         }
         aabb = {};
         for (int i = first + count - 1; i > first; --i) {
-            aabb.extend(primitives[indices[i]]);
+            aabb.extend(primitives[i]);
             right_aabbs[axis].push_back(aabb);
         }
 
@@ -115,7 +111,8 @@ no_split:
     }
 
     if (best_i == -1) {
-        goto no_split;
+        nodes.push_back(result);
+        return nodes.size() - 1;
     }
 
     if (best_axis != 2) {
@@ -125,8 +122,8 @@ no_split:
     nodes.push_back(result);
     int result_i = nodes.size() - 1;
 
-    result.left_child = build_node(primitives, first, best_i + 1);
-    result.right_child = build_node(primitives, first + best_i + 1, count - best_i - 1);
+    nodes[result_i].left_child = build_node(primitives, first, best_i + 1);
+    nodes[result_i].right_child = build_node(primitives, first + best_i + 1, count - best_i - 1);
 
     return result_i;
 }
@@ -137,7 +134,7 @@ void BVH::apply(const std::vector<Object> &primitives,
                 std::function<void(const Object &)> f,
                 std::function<bool(const AABB &)> pred,
                 int i) const {
-    if (i == -1) {
+    if (i == -2) {
         i = root;
     }
 

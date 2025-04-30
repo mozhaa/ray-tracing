@@ -44,7 +44,7 @@ struct BVH {
     void apply(const std::vector<Object> &primitives,
                std::function<void(const Object &)> f,
                std::function<bool(const AABB &)> pred,
-               int i = -1) const;
+               int i = -2) const;
 };
 
 } // namespace raytracing

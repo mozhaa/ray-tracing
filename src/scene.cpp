@@ -161,8 +161,6 @@ std::pair<OptInsc, const Object *> Scene::intersect(Ray ray, float max_distance)
         }
     };
 
-    float min_t = std::numeric_limits<float>::infinity();
-
     // does ray intersect aabb
     std::function<bool(const AABB &)> pred = [&](const AABB &aabb) {
         glm::vec3 tm = (aabb.min - ray.pos) / ray.dir;
@@ -174,13 +172,9 @@ std::pair<OptInsc, const Object *> Scene::intersect(Ray ray, float max_distance)
         }
 
         if (t1 < 0) {
-            t1 = t2;
-        }
-        if (min_t < t1) {
-            return false;
+            return t2 < max_distance;
         } else {
-            min_t = t1;
-            return true;
+            return t1 < max_distance;
         }
     };
 
